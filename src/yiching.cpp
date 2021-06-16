@@ -23,6 +23,16 @@ string remove_head(string s) {
 	return s.substr(s.find(to_find) + 3);//not 1 byte, but 3 byte
 }
 
+string psstm(string command)
+{//return system call output as string
+	string s;
+	char tmp[1000];
+	FILE* f = popen(command.c_str(), "r");
+	while(fgets(tmp, sizeof(tmp), f)) s += tmp;
+	pclose(f);
+	return s;
+}
+
 void parse_file() {
 	string s;
 	ifstream f{"주역.txt"};
@@ -66,6 +76,7 @@ public:
 		grid_.attach(phrase_[0], 1, 0);
 		grid_.attach(change_, 2, 0);
 		grid_.attach(phrase_[1], 3, 0);
+		grid_.attach(save_, 4, 0);
 		for(int i=0; i<6; i++) grid_.attach(hyo_phrase_[0][5-i], 0, i+1);
 		for(int i=0; i<6; i++) grid_.attach(hyo_[0][5-i], 1, i+1);
 		for(int i=0; i<6; i++) grid_.attach(check_[5-i], 2, i+1);
@@ -83,13 +94,14 @@ public:
 	}
 protected:
 	Gtk::Grid grid_;
-	Gtk::Button bt_{"Done"};
+	Gtk::Button bt_{"Done"}, save_{"Save"};
 	Gtk::CheckButton check_[6];
 	Gtk::Label  hyo_phrase_[2][6], phrase_[2], change_{"변효"};
 	Gtk::Button hyo_[2][6];
 	bool yinyang_[6] = {false, };
 	Gtk::Image yin_img_{"yin.png"}, yang_img_{"yang.png"}, pix_[6][2][2];
 private:
+	char c_, d_, e_;
 //	string yin_ = "<span size=\"xx-large\">\u268b</span>",
 //				 yang_ = "<span size=\"xx-large\">\u268a</span>";
 	void connect_event() {
@@ -106,6 +118,7 @@ private:
 					d +=  1 << i;
 				} 
 				char e = c ^ d;
+				c_ = c; d_ = d; e_ = e;
 				for(int i=0; i<6; i++) hyo_[1][i].set_image(e & (1 << i) ? pix_[i][1][1] : pix_[i][1][0]);
 				for(int i=0; i<64; i++) {
 					if(g[i].gwe_ == c) {
@@ -126,32 +139,23 @@ private:
 					}
 				}
 				switch(changed_count) {
-					case 0: phrase_[0].set_markup(bluefy(phrase_[0].get_label()));
-									break;
-					case 1: hyo_phrase_[0][log2(d)].set_markup(bluefy(hyo_phrase_[0][log2(d)].get_label()));
-									break;
-					case 2: hyo_phrase_[0][get_upper(d)].set_markup(bluefy(hyo_phrase_[0][get_upper(d)].get_label()));
-									break;
-					case 3: phrase_[0].set_markup(bluefy(phrase_[0].get_label()));
-									phrase_[1].set_markup(bluefy(phrase_[1].get_label()));
-									break;
-					case 4: hyo_phrase_[1][get_lower(flip(d))].set_markup(
-											bluefy(hyo_phrase_[1][get_lower(flip(d))].get_label()));
-									break;
-					case 5: hyo_phrase_[1][log2(flip(d))].set_markup(
-											bluefy(hyo_phrase_[1][log2(flip(d))].get_label()));
-									break;
-					case 6: phrase_[1].set_tooltip_text(bluefy(phrase_[1].get_tooltip_text()));
-									break;
+					case 0: bluefy(phrase_[0]); break;
+					case 1: bluefy(hyo_phrase_[0][get_lower(d)]); break;
+					case 2: bluefy(hyo_phrase_[0][get_upper(d)]); break;
+					case 3: bluefy(phrase_[0]); bluefy(phrase_[1]); break;
+					case 4: bluefy(hyo_phrase_[1][get_lower(flip(d))]); break;
+					case 5: bluefy(hyo_phrase_[1][get_lower(flip(d))]); break;
+					case 6: bluefy(phrase_[1]); break;
 				}
 		});
+
+		save_.signal_clicked().connect([this]() {
+				ofstream f{"save.txt", ios_base::app};
+				f << psstm("date") << +c_ << ' ' << +d_ << ' ' << +e_ << endl;
+		});
 	}
-	string bluefy(string s) {
-		return "<span foreground=\"blue\">" + s + "</span>";
-	}
-	int log2(char c) {
-		for(int i=0; i<6; i++) if(1 << i == c) return i;
-		throw "do not reach here";
+	void bluefy(Gtk::Label &l) {
+		l.set_markup("<span foreground=\"blue\">" + l.get_label() + "</span>");
 	}
 	int get_upper(char c) {
 		for(int i=0; i<6; i++) if(0b100000 >> i & c) return 5-i;
