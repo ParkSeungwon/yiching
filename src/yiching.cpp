@@ -102,6 +102,7 @@ protected:
 	Gtk::Image yin_img_{"yin.png"}, yang_img_{"yang.png"}, pix_[6][2][2];
 private:
 	char c_, d_, e_;
+	string to_save_;
 //	string yin_ = "<span size=\"xx-large\">\u268b</span>",
 //				 yang_ = "<span size=\"xx-large\">\u268a</span>";
 	void connect_event() {
@@ -109,53 +110,15 @@ private:
 				yinyang_[i] = !yinyang_[i];
 				hyo_[0][i].set_image(yinyang_[i] ? pix_[i][0][1] : pix_[i][0][0]);
 		});
-		bt_.signal_clicked().connect([this]() {
-				char c = 0, d = 0;
-				int changed_count = 0;
-				for(int i=0; i<6; i++) c += (yinyang_[i] ? 1 : 0) << i;
-				for(int i=0; i<6; i++) if(check_[i].get_active()) {
-					changed_count++;
-					d +=  1 << i;
-				} 
-				char e = c ^ d;
-				c_ = c; d_ = d; e_ = e;
-				for(int i=0; i<6; i++) hyo_[1][i].set_image(e & (1 << i) ? pix_[i][1][1] : pix_[i][1][0]);
-				for(int i=0; i<64; i++) {
-					if(g[i].gwe_ == c) {
-						phrase_[0].set_markup(g[i].gphrase_);
-						phrase_[0].set_tooltip_text(g[i].gdan_ + '\n' + g[i].gsang_);
-						for(int j=0; j<6; j++) {
-							hyo_phrase_[0][j].set_markup(g[i].hphrase_[j]);
-							hyo_phrase_[0][j].set_tooltip_text(g[i].hsang_[j]);
-						}
-					}
-					if(g[i].gwe_ == e) {
-						phrase_[1].set_markup(g[i].gphrase_);
-						phrase_[1].set_tooltip_text(g[i].gdan_ + '\n' + g[i].gsang_);
-						for(int j=0; j<6; j++) {
-							hyo_phrase_[1][j].set_markup(g[i].hphrase_[j]);
-							hyo_phrase_[1][j].set_tooltip_text(g[i].hsang_[j]);
-						}
-					}
-				}
-				switch(changed_count) {
-					case 0: bluefy(phrase_[0]); break;
-					case 1: bluefy(hyo_phrase_[0][get_lower(d)]); break;
-					case 2: bluefy(hyo_phrase_[0][get_upper(d)]); break;
-					case 3: bluefy(phrase_[0]); bluefy(phrase_[1]); break;
-					case 4: bluefy(hyo_phrase_[1][get_lower(flip(d))]); break;
-					case 5: bluefy(hyo_phrase_[1][get_lower(flip(d))]); break;
-					case 6: bluefy(phrase_[1]); break;
-				}
-		});
-
+		bt_.signal_clicked().connect(bind(&Win::on_click, this));
 		save_.signal_clicked().connect([this]() {
 				ofstream f{"save.txt", ios_base::app};
-				f << psstm("date") << +c_ << ' ' << +d_ << ' ' << +e_ << endl;
+				f << psstm("date") << +c_ << ' ' << +d_ << ' ' << +e_ << ' ' << to_save_ << endl;
 		});
 	}
 	void bluefy(Gtk::Label &l) {
-		l.set_markup("<span foreground=\"blue\">" + l.get_label() + "</span>");
+		to_save_ += l.get_label();
+		l.set_markup("<span foreground=\"blue\">" + to_save_ + "</span>");
 	}
 	int get_upper(char c) {
 		for(int i=0; i<6; i++) if(0b100000 >> i & c) return 5-i;
@@ -165,6 +128,46 @@ private:
 	}
 	char flip(char c) {
 		return ~c & 0b00111111;
+	}
+	void on_click() {
+		to_save_ = "";
+		char c = 0, d = 0;
+		int changed_count = 0;
+		for(int i=0; i<6; i++) c += (yinyang_[i] ? 1 : 0) << i;
+		for(int i=0; i<6; i++) if(check_[i].get_active()) {
+			changed_count++;
+			d +=  1 << i;
+		} 
+		char e = c ^ d;
+		c_ = c; d_ = d; e_ = e;//본괘 변효 지괘
+		for(int i=0; i<6; i++) hyo_[1][i].set_image(e & (1 << i) ? pix_[i][1][1] : pix_[i][1][0]);
+		for(int i=0; i<64; i++) {
+			if(g[i].gwe_ == c) {
+				phrase_[0].set_markup(g[i].gphrase_);
+				phrase_[0].set_tooltip_text(g[i].gdan_ + '\n' + g[i].gsang_);
+				for(int j=0; j<6; j++) {
+					hyo_phrase_[0][j].set_markup(g[i].hphrase_[j]);
+					hyo_phrase_[0][j].set_tooltip_text(g[i].hsang_[j]);
+				}
+			}
+			if(g[i].gwe_ == e) {
+				phrase_[1].set_markup(g[i].gphrase_);
+				phrase_[1].set_tooltip_text(g[i].gdan_ + '\n' + g[i].gsang_);
+				for(int j=0; j<6; j++) {
+					hyo_phrase_[1][j].set_markup(g[i].hphrase_[j]);
+					hyo_phrase_[1][j].set_tooltip_text(g[i].hsang_[j]);
+				}
+			}
+		}
+		switch(changed_count) {
+			case 0: bluefy(phrase_[0]); break;
+			case 1: bluefy(hyo_phrase_[0][get_lower(d)]); break;
+			case 2: bluefy(hyo_phrase_[0][get_upper(d)]); break;
+			case 3: bluefy(phrase_[0]); bluefy(phrase_[1]); break;
+			case 4: bluefy(hyo_phrase_[1][get_lower(flip(d))]); break;
+			case 5: bluefy(hyo_phrase_[1][get_lower(flip(d))]); break;
+			case 6: bluefy(phrase_[1]); break;
+		}
 	}
 };
 
